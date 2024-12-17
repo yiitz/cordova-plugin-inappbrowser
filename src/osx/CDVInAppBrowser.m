@@ -128,7 +128,9 @@
 - (instancetype)initWithURL:(NSURL*)url {
     self = [super initWithWindow:nil];
     if (self) {
-        self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 800, 600)
+        NSRect screenRect = [[NSScreen mainScreen] frame];
+        NSRect contentRect = NSMakeRect(0, screenRect.size.height - 600, 800, 600);
+        self.window = [[NSWindow alloc] initWithContentRect:contentRect
                                                   styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable)
                                                     backing:NSBackingStoreBuffered defer:NO];
         self.window.title = @"Browser";
