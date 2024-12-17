@@ -24,8 +24,13 @@
 #define    kInAppBrowserTargetSystem @"_system"
 #define    kInAppBrowserTargetBlank @"_blank"
 
-@interface CDVInAppBrowser () {
-}
+
+@interface CDVInAppBrowserWindowController : NSWindowController <WKNavigationDelegate>
+@property (strong) WKWebView *webView;
+@end
+
+@interface CDVInAppBrowser()
+@property (nonatomic, strong) InAppBrowserViewController *browserController;
 @end
 
 @implementation CDVInAppBrowser
@@ -70,7 +75,26 @@
             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
         } else { // _blank or anything else
             //[self openInInAppBrowser:absoluteUrl withOptions:options];
-            pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Not Yet Implemented for OSX: [self openInInAppBrowser:absoluteUrl withOptions:options]"];
+            // 创建并打开浏览器窗口
+            dispatch_async(dispatch_get_main_queue(), ^{
+                InAppBrowserViewController *browserController = [[InAppBrowserViewController alloc] initWithURL:absoluteUrl];
+                browserController.onLoadStart = ^(NSURL *url) {
+                    // 回调 loadstart 事件
+                    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
+                                                                  messageAsDictionary:@{@"type":@"loadstart", @"url":[url absoluteString]}];
+                    [result setKeepCallbackAsBool:YES];
+                    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+                };
+                browserController.onExit = ^{
+                    // 回调 exit 事件
+                    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
+                                                                  messageAsDictionary:@{@"type":@"exit"}];
+                    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+                };
+                self.browserController = browserController;
+                [browserController showWindow:browserController];
+            });
+            pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
         }
 
     } else {
@@ -85,5 +109,67 @@
     [[NSWorkspace sharedWorkspace] openURL:url];
 }
 
+// 关闭窗口
+- (void)close:(CDVInvokedUrlCommand*)command {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.browserController close];
+        self.browserController = nil;
+    });
+    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+    [result setKeepCallback:[NSNumber numberWithBool:YES]];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+}
+
 @end
 
+
+@implementation InAppBrowserViewController
+
+- (instancetype)initWithURL:(NSURL*)url {
+    self = [super initWithWindow:nil];
+    if (self) {
+        self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 800, 600)
+                                                  styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable)
+                                                    backing:NSBackingStoreBuffered defer:NO];
+        self.window.title = @"Browser";
+        
+        WKWebViewConfiguration* config = [[WKWebViewConfiguration alloc] init];
+        WKWebView *webView = [[WKWebView alloc] initWithFrame:self.window.contentView.bounds configuration:config];
+        webView.navigationDelegate = self;
+        webView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+        self.window.contentView = webView;
+        
+        [webView loadRequest:[NSURLRequest requestWithURL:url]];
+    }
+    return self;
+}
+
+- (void)webView:(WKWebView *)theWebView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
+    
+    NSURL* url = navigationAction.request.URL;
+    NSURL* mainDocumentURL = navigationAction.request.mainDocumentURL;
+    BOOL isTopLevelNavigation = [url isEqual:mainDocumentURL];
+    
+    if (self.onLoadStart && isTopLevelNavigation) {
+        self.onLoadStart(url);
+    }
+
+    // Fix GH-417 & GH-424: Handle non-default target attribute
+    // Based on https://stackoverflow.com/a/25713070/777265
+    if (!navigationAction.targetFrame){
+        [theWebView loadRequest:navigationAction.request];
+        decisionHandler(WKNavigationActionPolicyCancel);
+    }else{
+        decisionHandler(WKNavigationActionPolicyAllow);
+    }
+}
+
+// TODO by yiitz: Manually clicking to close the window here will not trigger a callback.
+- (void)close {
+    [self.window close];
+    if (self.onExit) {
+        self.onExit();
+    }
+}
+
+@end

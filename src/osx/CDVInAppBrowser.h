@@ -28,3 +28,11 @@
 
 @end
 
+@interface InAppBrowserViewController : NSWindowController <WKNavigationDelegate>
+
+@property (nonatomic, copy) void (^onLoadStart)(NSURL *url);
+@property (nonatomic, copy) void (^onExit)(void);
+
+- (instancetype)initWithURL:(NSURL*)url;
+
+@end
