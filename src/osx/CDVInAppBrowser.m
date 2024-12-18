@@ -24,15 +24,6 @@
 #define    kInAppBrowserTargetSystem @"_system"
 #define    kInAppBrowserTargetBlank @"_blank"
 
-
-@interface CDVInAppBrowserWindowController : NSWindowController <WKNavigationDelegate>
-@property (strong) WKWebView *webView;
-@end
-
-@interface CDVInAppBrowser()
-@property (nonatomic, strong) InAppBrowserViewController *browserController;
-@end
-
 @implementation CDVInAppBrowser
 
 - (void)pluginInitialize
@@ -55,10 +46,7 @@
     NSString* url = [command argumentAtIndex:0];
     NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
 
-    self.callbackId = command.callbackId;
-
     if (url != nil) {
-
         NSURL* baseUrl = [NSURL URLWithString:url];
 
         NSURL* absoluteUrl = [[NSURL URLWithString:url relativeToURL:baseUrl] absoluteURL];
@@ -141,11 +129,22 @@
         webView.navigationDelegate = self;
         webView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
         self.window.contentView = webView;
+        self.webView = webView;
+        
+        [webView addObserver:self forKeyPath:@"title" options:NSKeyValueObservingOptionNew context:nil];
+
         
         [webView loadRequest:[NSURLRequest requestWithURL:url]];
     }
     return self;
 }
+
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey, id> *)change context:(void *)context {
+    if ([keyPath isEqualToString:@"title"] && object == self.webView) {
+        self.window.title = self.webView.title ?: @"Browser";
+    }
+}
+
 
 - (void)webView:(WKWebView *)theWebView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
     
@@ -169,6 +168,7 @@
 
 - (void)windowWillClose:(NSNotification *)notification {
     NSLog(@"Window is closing!");
+    [self.webView removeObserver:self forKeyPath:@"title"];
     if (self.onExit) {
         self.onExit();
     }

@@ -19,20 +19,22 @@
 
 #import <Cordova/CDVPlugin.h>
 
-@interface CDVInAppBrowser : CDVPlugin {
-}
-
-@property (nonatomic, copy) NSString* callbackId;
-
-- (void)open:(CDVInvokedUrlCommand*)command;
-
-@end
-
 @interface InAppBrowserViewController : NSWindowController <WKNavigationDelegate, NSWindowDelegate>
 
+@property (nonatomic, strong) WKWebView *webView;
 @property (nonatomic, copy) void (^onLoadStart)(NSURL *url);
 @property (nonatomic, copy) void (^onExit)(void);
 
 - (instancetype)initWithURL:(NSURL*)url;
+
+@end
+
+
+@interface CDVInAppBrowser : CDVPlugin {
+}
+
+@property (nonatomic, strong) InAppBrowserViewController *browserController;
+
+- (void)open:(CDVInvokedUrlCommand*)command;
 
 @end
