@@ -28,7 +28,7 @@
 
 @end
 
-@interface InAppBrowserViewController : NSWindowController <WKNavigationDelegate>
+@interface InAppBrowserViewController : NSWindowController <WKNavigationDelegate, NSWindowDelegate>
 
 @property (nonatomic, copy) void (^onLoadStart)(NSURL *url);
 @property (nonatomic, copy) void (^onExit)(void);

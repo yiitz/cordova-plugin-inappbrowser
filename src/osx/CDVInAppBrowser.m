@@ -133,6 +133,7 @@
         self.window = [[NSWindow alloc] initWithContentRect:contentRect
                                                   styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable)
                                                     backing:NSBackingStoreBuffered defer:NO];
+        self.window.delegate = self;
         self.window.title = @"Browser";
         
         WKWebViewConfiguration* config = [[WKWebViewConfiguration alloc] init];
@@ -166,9 +167,8 @@
     }
 }
 
-// TODO by yiitz: Manually clicking to close the window here will not trigger a callback.
-- (void)close {
-    [self.window close];
+- (void)windowWillClose:(NSNotification *)notification {
+    NSLog(@"Window is closing!");
     if (self.onExit) {
         self.onExit();
     }
